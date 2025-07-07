@@ -1,47 +1,52 @@
 import React, { useState, useRef } from 'react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
+import { useNavigate } from 'react-router-dom';
 
 const samplePartners = [
   {
     id: 1,
-    name: 'James B',
-    title: 'Webflow Expert',
+    name: 'Ethan Reynolds',
+    title: 'Ethan Reynolds',
     desc: 'I will design and develop a modern webflow website',
     price: 1995,
+    duration: '1hr',
     rating: 5.0,
     reviews: 50,
-    img: '/openai-logo.png',
+    img: '/default-profile.png',
   },
   {
     id: 2,
-    name: 'Fillinx Sol',
-    title: 'Shopify Agency',
+    name: 'Olivia Parker',
+    title: 'Olivia Parker',
     desc: 'Our agency will build shopify ecommerce website, redesign online store',
     price: 195,
+    duration: '30min',
     rating: 5.0,
     reviews: 970,
-    img: '/instagram-logo.png',
+    img: '/default-profile.png',
   },
   {
     id: 3,
-    name: 'Rank Harvest',
-    title: 'Wordpress Pro',
+    name: 'Youngchan Kim',
+    title: 'Youngchan Kim',
     desc: 'Our agency will design and develop your custom wordpress website',
     price: 500,
+    duration: '2hr',
     rating: 4.9,
     reviews: 66,
-    img: '/harvard-logo.png',
+    img: '/default-profile.png',
   },
   {
     id: 4,
-    name: 'Dinos',
-    title: 'Modern Web Designer',
+    name: 'Mason Bennett',
+    title: 'Mason Bennett',
     desc: 'I will web design and build a responsive modern wordpress website',
     price: 1000,
+    duration: '15min',
     rating: 5.0,
     reviews: 456,
-    img: '/ycombinator-logo.png',
+    img: '/default-profile.png',
   },
 ];
 
@@ -100,6 +105,7 @@ const budgetMax = 2000;
 const budgetStep = (budgetMax - budgetMin) / (budgetHistogram.length - 1);
 
 function Explore() {
+  const navigate = useNavigate();
   // 모듈형 필터 상태
   const [activeFilters, setActiveFilters] = useState(['all']);
   // Services 드롭다운 상태
@@ -307,15 +313,15 @@ function Explore() {
       <div className="explore-results-count">4 results</div>
       <div className="explore-partner-grid">
         {samplePartners.map(partner => (
-          <div className="partner-card" key={partner.id}>
+          <div className="partner-card" key={partner.id} onClick={() => navigate(`/partner/${partner.id}`)} style={{cursor:'pointer'}}>
             <div className="partner-thumb">
               <img src={partner.img} alt={partner.name} />
             </div>
             <div className="partner-info">
-              <div className="partner-title">{partner.title}</div>
+              <div className="partner-title">{partner.name}</div>
               <div className="partner-desc">{partner.desc}</div>
               <div className="partner-meta">
-                <span className="partner-price">From ${partner.price}</span>
+                <span className="partner-price">From ${partner.price} <span className="partner-duration">({partner.duration})</span></span>
               </div>
             </div>
           </div>

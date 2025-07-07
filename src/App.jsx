@@ -2,9 +2,17 @@ import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from
 import { AnimatePresence, motion } from 'framer-motion';
 import './App.css';
 import { FaRocket, FaUserTie, FaBullhorn, FaPiggyBank, FaHandsHelping, FaHeartbeat, FaHeart, FaCog, FaLightbulb, FaGraduationCap } from 'react-icons/fa';
-import { FiChevronDown } from 'react-icons/fi';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { FiChevronDown, FiBell, FiMail, FiHeart } from 'react-icons/fi';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Explore from './Explore';
+import PartnerDetail from './PartnerDetail';
+import SignIn from './SignIn';
+import { auth } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import OnboardingRoleSelect from './OnboardingRoleSelect';
+import { db } from './firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import Profile from './Profile';
 
 function App() {
   // 추천 태그 상태 관리
@@ -16,25 +24,125 @@ function App() {
     "Harvard Professor"
   ];
 
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [signInMode, setSignInMode] = useState('signup');
+  const [user, setUser] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [onboardingRole, setOnboardingRole] = useState(null); // null: 체크 전, 'seeker'/'advisor': 완료, 'pending'/'advisor-pending': 온보딩 중
+  const [showProfile, setShowProfile] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) setShowSignIn(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setOnboardingRole(null);
+      return;
+    }
+    // Firestore에서 role 체크
+    const checkRole = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const role = userDoc.exists() ? userDoc.data().role : undefined;
+        console.log('Firestore role:', role);
+        // role이 seeker/advisor가 아니면 무조건 온보딩
+        if (role !== 'seeker' && role !== 'advisor') {
+          setOnboardingRole('pending');
+        } else {
+          setOnboardingRole(role);
+        }
+      } catch (err) {
+        console.error('Firestore role check error:', err);
+        setOnboardingRole('pending'); // 에러 시에도 온보딩 띄움
+      }
+    };
+    checkRole();
+  }, [user]);
+
+  const handleSignOut = () => {
+    signOut(auth);
+    setShowProfileMenu(false);
+  };
+
+  // 프로필 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!showProfileMenu) return;
+    const handleClick = (e) => {
+      if (!e.target.closest('.nav-profile')) setShowProfileMenu(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showProfileMenu]);
+
+  // 온보딩 설문 완료 시 Firestore에 저장
+  const handleOnboardingRole = async (role) => {
+    if (!user) return;
+    if (role === 'advisor-pending') {
+      setOnboardingRole('advisor-pending');
+      return;
+    }
+    await setDoc(doc(db, 'users', user.uid), { role }, { merge: true });
+    setOnboardingRole(role);
+  };
+
   return (
     <Router>
       <div className="app-container">
         {/* 네비게이션 바 */}
         <nav className="navbar">
           <div className="logo">
-            <Link to="/">
+            <a href="/">
               <img src="/curioor.jpg" alt="curioor logo" className="curioor-logo" />
-            </Link>
+            </a>
           </div>
           <div className="nav-links">
-            <Link to="/explore" className="nav-link nav-bold">Explore</Link>
-            <a href="#" className="nav-link nav-yellow-hover">Become a Partner</a>
-            <a href="#" className="nav-link nav-yellow-hover">Sign in</a>
-            <button className="join-btn">Join</button>
+            <a href="/explore" className="nav-link nav-bold">Explore</a>
+            {user ? (
+              <>
+                <span className="nav-icon-btn"><FiBell size={26} /></span>
+                <span className="nav-icon-btn"><FiMail size={26} /></span>
+                <span className="nav-icon-btn"><FiHeart size={26} /></span>
+                <span className="nav-link nav-activity">Activity</span>
+                <div className="nav-profile" tabIndex={0} onClick={() => setShowProfileMenu(v => !v)}>
+                  <img src={user.photoURL || '/default-profile.png'} alt="profile" className="nav-profile-img" />
+                  {showProfileMenu && (
+                    <div className="profile-dropdown-menu">
+                      <div className="profile-menu-item" onClick={() => { setShowProfileMenu(false); setShowProfile(true); }}>Profile</div>
+                      <div className="profile-menu-item">Settings</div>
+                      <div className="profile-menu-item">Billing and payments</div>
+                      <div className="profile-menu-item">Help & support</div>
+                      <hr className="profile-menu-divider" />
+                      <div className="profile-menu-item profile-menu-logout" onClick={handleSignOut}>Log out</div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <a href="#" className="nav-link nav-yellow-hover" onClick={e => {e.preventDefault(); setSignInMode('signin'); setShowSignIn(true);}}>Sign in</a>
+                <button className="join-btn" onClick={() => { setSignInMode('signup'); setShowSignIn(true); }}>Join</button>
+              </>
+            )}
           </div>
         </nav>
+        {showSignIn && <SignIn mode={signInMode} onSuccess={() => setShowSignIn(false)} />}
+        {user && (onboardingRole === 'pending' || onboardingRole === 'advisor-pending') && (
+          <OnboardingRoleSelect
+            userName={user.displayName || user.email}
+            onboardingRole={onboardingRole}
+            setOnboardingRole={setOnboardingRole}
+            onSelect={handleOnboardingRole}
+          />
+        )}
+        {showProfile && <Profile user={user} onClose={() => setShowProfile(false)} />}
         <Routes>
           <Route path="/explore" element={<Explore />} />
+          <Route path="/partner/:id" element={<PartnerDetail />} />
           <Route path="/" element={
             <>
               {/* 메인 배너 */}
