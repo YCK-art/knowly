@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import './App.css';
 import { FaRocket, FaUserTie, FaBullhorn, FaPiggyBank, FaHandsHelping, FaHeartbeat, FaHeart, FaCog, FaLightbulb, FaGraduationCap } from 'react-icons/fa';
 import { FiChevronDown, FiBell, FiMail, FiHeart } from 'react-icons/fi';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import Explore from './Explore';
 import PartnerDetail from './PartnerDetail';
 import SignIn from './SignIn';
@@ -13,6 +13,9 @@ import OnboardingRoleSelect from './OnboardingRoleSelect';
 import { db } from './firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Profile from './Profile';
+import OnboardingCongrats from './OnboardingCongrats';
+import SeekerProfile from './SeekerProfile';
+import FavoritesPage from './FavoritesPage';
 
 function App() {
   // 추천 태그 상태 관리
@@ -28,46 +31,53 @@ function App() {
   const [signInMode, setSignInMode] = useState('signup');
   const [user, setUser] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [onboardingRole, setOnboardingRole] = useState(null); // null: 체크 전, 'seeker'/'advisor': 완료, 'pending'/'advisor-pending': 온보딩 중
-  const [showProfile, setShowProfile] = useState(false);
+  const [onboardingRole, setOnboardingRole] = useState('pending');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showOnboardingDone, setShowOnboardingDone] = useState(false);
+  const [isLoadingRole, setIsLoadingRole] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'No user');
       setUser(firebaseUser);
       if (firebaseUser) setShowSignIn(false);
     });
     return () => unsubscribe();
   }, []);
 
+  // Firestore에서 role fetch하여 onboardingRole 상태 동기화
   useEffect(() => {
     if (!user) {
-      setOnboardingRole(null);
+      setOnboardingRole('pending');
+      setShowOnboarding(false);
+      setShowOnboardingDone(false);
+      setIsLoadingRole(false);
       return;
     }
-    // Firestore에서 role 체크
-    const checkRole = async () => {
+    const fetchRole = async () => {
+      setIsLoadingRole(true);
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const role = userDoc.exists() ? userDoc.data().role : undefined;
-        console.log('Firestore role:', role);
-        // role이 seeker/advisor가 아니면 무조건 온보딩
+        const role = userDoc.exists() ? userDoc.data().role : 'pending';
+        setOnboardingRole(role || 'pending');
+        // role이 seeker/advisor가 아니면 온보딩 필요
         if (role !== 'seeker' && role !== 'advisor') {
-          setOnboardingRole('pending');
+          setShowOnboarding(true);
         } else {
-          setOnboardingRole(role);
+          setShowOnboarding(false);
         }
-      } catch (err) {
-        console.error('Firestore role check error:', err);
-        setOnboardingRole('pending'); // 에러 시에도 온보딩 띄움
+      } catch (error) {
+        setOnboardingRole('pending');
+        setShowOnboarding(true);
+      } finally {
+        setIsLoadingRole(false);
       }
     };
-    checkRole();
+    fetchRole();
   }, [user]);
-
-  const handleSignOut = () => {
-    signOut(auth);
-    setShowProfileMenu(false);
-  };
 
   // 프로필 메뉴 외부 클릭 시 닫기
   useEffect(() => {
@@ -79,128 +89,206 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showProfileMenu]);
 
-  // 온보딩 설문 완료 시 Firestore에 저장
-  const handleOnboardingRole = async (role) => {
+  // 온보딩 설문 완료 시 Firestore에 모든 필드 저장
+  const handleOnboardingComplete = async (onboardingData) => {
     if (!user) return;
-    if (role === 'advisor-pending') {
-      setOnboardingRole('advisor-pending');
-      return;
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        role: onboardingData.role,
+        motivation: onboardingData.motivation,
+        motivationOther: onboardingData.motivationOther,
+        country: onboardingData.country,
+        firstName: onboardingData.firstName,
+        lastName: onboardingData.lastName
+      }, { merge: true });
+      setOnboardingRole(onboardingData.role);
+      setShowOnboardingDone(true);
+    } catch (error) {
+      console.error('Error saving onboarding data:', error);
     }
-    await setDoc(doc(db, 'users', user.uid), { role }, { merge: true });
-    setOnboardingRole(role);
+  };
+
+  // 로그아웃 핸들러
+  const handleSignOut = () => {
+    signOut(auth);
+    setShowProfileMenu(false);
+    setOnboardingRole('pending');
+    setShowOnboardingDone(false);
+    setShowLogoutConfirm(false);
+    // 로그아웃 시 홈화면으로 이동
+    navigate('/');
   };
 
   return (
-    <Router>
-      <div className="app-container">
-        {/* 네비게이션 바 */}
-        <nav className="navbar">
-          <div className="logo">
-            <a href="/">
-              <img src="/curioor.jpg" alt="curioor logo" className="curioor-logo" />
-            </a>
-          </div>
-          <div className="nav-links">
-            <a href="/explore" className="nav-link nav-bold">Explore</a>
-            {user ? (
-              <>
-                <span className="nav-icon-btn"><FiBell size={26} /></span>
-                <span className="nav-icon-btn"><FiMail size={26} /></span>
-                <span className="nav-icon-btn"><FiHeart size={26} /></span>
-                <span className="nav-link nav-activity">Activity</span>
-                <div className="nav-profile" tabIndex={0} onClick={() => setShowProfileMenu(v => !v)}>
-                  <img src={user.photoURL || '/default-profile.png'} alt="profile" className="nav-profile-img" />
-                  {showProfileMenu && (
-                    <div className="profile-dropdown-menu">
-                      <div className="profile-menu-item" onClick={() => { setShowProfileMenu(false); setShowProfile(true); }}>Profile</div>
-                      <div className="profile-menu-item">Settings</div>
-                      <div className="profile-menu-item">Billing and payments</div>
-                      <div className="profile-menu-item">Help & support</div>
-                      <hr className="profile-menu-divider" />
-                      <div className="profile-menu-item profile-menu-logout" onClick={handleSignOut}>Log out</div>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <a href="#" className="nav-link nav-yellow-hover" onClick={e => {e.preventDefault(); setSignInMode('signin'); setShowSignIn(true);}}>Sign in</a>
-                <button className="join-btn" onClick={() => { setSignInMode('signup'); setShowSignIn(true); }}>Join</button>
-              </>
-            )}
-          </div>
-        </nav>
-        {showSignIn && <SignIn mode={signInMode} onSuccess={() => setShowSignIn(false)} />}
-        {user && (onboardingRole === 'pending' || onboardingRole === 'advisor-pending') && (
-          <OnboardingRoleSelect
-            userName={user.displayName || user.email}
-            onboardingRole={onboardingRole}
-            setOnboardingRole={setOnboardingRole}
-            onSelect={handleOnboardingRole}
-          />
-        )}
-        {showProfile && <Profile user={user} onClose={() => setShowProfile(false)} />}
-        <Routes>
-          <Route path="/explore" element={<Explore />} />
-          <Route path="/partner/:id" element={<PartnerDetail />} />
-          <Route path="/" element={
+    <div className="app-container">
+      {/* 네비게이션 바 */}
+      <nav className="navbar">
+        <div className="logo">
+          <a href="/">
+            <img src="/curioor.jpg" alt="curioor logo" className="curioor-logo" />
+          </a>
+        </div>
+        <div className="nav-links">
+          <a href="/explore" className="nav-link nav-bold">Explore</a>
+          {user ? (
             <>
-              {/* 메인 배너 */}
-              <section className="main-banner">
-                <div className="banner-content">
-                  <div className="banner-title">
-                    <span className="block">Fuel Your Curiosity,</span>
-                    <span className="block">Where questions find answers.</span>
+              <span className="nav-icon-btn"><FiBell size={26} /></span>
+              <span className="nav-icon-btn"><FiMail size={26} /></span>
+              <span className="nav-icon-btn" onClick={()=>navigate('/favorites')}><FiHeart size={26} /></span>
+              <span className="nav-link nav-activity">Activity</span>
+              <div className="nav-profile" tabIndex={0} onClick={() => setShowProfileMenu(v => !v)}>
+                <img src={user.photoURL || '/default-profile.png'} alt="profile" className="nav-profile-img" />
+                {showProfileMenu && (
+                  <div className="profile-dropdown-menu">
+                    <div className="profile-menu-item" onClick={() => { setShowProfileMenu(false); navigate('/profile'); }}>Profile</div>
+                    <div className="profile-menu-item">Settings</div>
+                    <div className="profile-menu-item">Billing and payments</div>
+                    <div className="profile-menu-item">Help & support</div>
+                    <hr className="profile-menu-divider" />
+                    <div className="profile-menu-item profile-menu-logout" onClick={() => setShowLogoutConfirm(true)}>Log out</div>
                   </div>
-                  <div className="search-bar modern">
-                    <div className="search-icon">
-                      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="20" cy="20" r="20" fill="#23272a"/>
-                        <g>
-                          <circle cx="19" cy="19" r="8" stroke="#fff" strokeWidth="2.5" fill="none"/>
-                          <line x1="26.5" y1="26.5" x2="33" y2="33" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
-                        </g>
-                      </svg>
-                    </div>
-                    <input type="text" placeholder="Search for someone to talk to..." />
-                  </div>
-                  <div className="suggested-tags">
-                    {tags.map((tag, idx) => (
-                      <button
-                        key={tag}
-                        className={activeTag === idx ? "active" : ""}
-                        onClick={() => setActiveTag(idx)}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </section>
-              {/* 실사용 예시 대화 위 문구 */}
-              <div className="section-headline">
-                <div className="section-headline-sub">THE SPACE TO SHARE AND LEARN</div>
-                <div className="section-headline-main">Curioor helps you ask and discover</div>
+                )}
               </div>
-              {/* 말풍선 카드(대화 시퀀스) */}
-              <ConversationSequence />
-              <div className="service-categories">
-                {/* ...카드 10개... */}
-              </div>
-              <section className="third-section">
-                <h2 className="third-title">Click. Connect. Learn.</h2>
-                <p className="third-subtitle">
-                  Choose your advisor and join the conversation instantly on Google Meet.
-                </p>
-                <div className="meet-logo-box">
-                  <img src="/google-meet-logo.svg" alt="Google Meet" className="meet-logo-full" />
-                </div>
-              </section>
             </>
-          } />
-        </Routes>
-      </div>
-    </Router>
+          ) : (
+            <>
+              <a href="#" className="nav-link nav-yellow-hover" onClick={e => {e.preventDefault(); setSignInMode('signin'); setShowSignIn(true);}}>Sign in</a>
+              <button className="join-btn" onClick={() => { setSignInMode('signup'); setShowSignIn(true); }}>Join</button>
+            </>
+          )}
+        </div>
+      </nav>
+      {showSignIn && (
+        <SignIn
+          mode={signInMode}
+          onSuccess={() => {
+            setShowSignIn(false);
+            navigate('/'); // 로그인/회원가입 성공 시 홈으로 이동
+          }}
+        />
+      )}
+      
+      {/* 온보딩 설문 조건부 렌더링 개선 */}
+      {showOnboardingDone && (
+        <OnboardingCongrats
+          role={onboardingRole}
+          onClose={() => setShowOnboardingDone(false)}
+        />
+      )}
+      {showOnboarding && (
+        <OnboardingRoleSelect
+          userName={user.displayName || user.email}
+          onComplete={data => {
+            handleOnboardingComplete(data);
+            setShowOnboarding(false);
+            setShowOnboardingDone(true);
+          }}
+        />
+      )}
+      
+      {showLogoutConfirm && (
+        <div className="modal-bg" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.32)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-card" style={{ background: '#fff', borderRadius: 16, padding: '32px 28px', boxShadow: '0 4px 24px rgba(0,0,0,0.13)', minWidth: 320, textAlign: 'center' }}>
+            <div style={{ fontSize: '1.15rem', marginBottom: 24, fontWeight: 500 }}>Are you sure you want to log out?</div>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+              <button className="modal-btn" style={{ padding: '10px 28px', borderRadius: 8, background: '#23272a', color: '#fff', border: 'none', fontWeight: 600, fontSize: '1rem', cursor: 'pointer' }} onClick={handleSignOut}>Yes</button>
+              <button className="modal-btn" style={{ padding: '10px 28px', borderRadius: 8, background: '#ececec', color: '#23272a', border: 'none', fontWeight: 600, fontSize: '1rem', cursor: 'pointer' }} onClick={() => setShowLogoutConfirm(false)}>No</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <Routes>
+        <Route path="/explore" element={<Explore />} />
+        <Route path="/partner/:id" element={<PartnerDetail />} />
+        <Route path="/profile" element={
+          isLoadingRole ? (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '50vh',
+              fontFamily: 'NeueHaasDisplayThin, sans-serif',
+              fontSize: '1.1rem',
+              color: '#666'
+            }}>
+              Loading profile...
+            </div>
+          ) : onboardingRole === 'seeker' ? (
+            <SeekerProfile user={user} />
+          ) : onboardingRole === 'advisor' ? (
+            <Profile user={user} />
+          ) : (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '50vh',
+              fontFamily: 'NeueHaasDisplayThin, sans-serif',
+              fontSize: '1.1rem',
+              color: '#666'
+            }}>
+              Profile not found
+            </div>
+          )
+        } />
+        <Route path="/favorites" element={<FavoritesPage user={user} />} />
+        <Route path="/" element={
+          <>
+            {/* 메인 배너 */}
+            <section className="main-banner">
+              <div className="banner-content">
+                <div className="banner-title">
+                  <span className="block">Fuel Your Curiosity,</span>
+                  <span className="block">Where questions find answers.</span>
+                </div>
+                <div className="search-bar modern">
+                  <div className="search-icon">
+                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="20" cy="20" r="20" fill="#23272a"/>
+                      <g>
+                        <circle cx="19" cy="19" r="8" stroke="#fff" strokeWidth="2.5" fill="none"/>
+                        <line x1="26.5" y1="26.5" x2="33" y2="33" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
+                      </g>
+                    </svg>
+                  </div>
+                  <input type="text" placeholder="Search for someone to talk to..." />
+                </div>
+                <div className="suggested-tags">
+                  {tags.map((tag, idx) => (
+                    <button
+                      key={tag}
+                      className={activeTag === idx ? "active" : ""}
+                      onClick={() => setActiveTag(idx)}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+            {/* 실사용 예시 대화 위 문구 */}
+            <div className="section-headline">
+              <div className="section-headline-sub">THE SPACE TO SHARE AND LEARN</div>
+              <div className="section-headline-main">Curioor helps you ask and discover</div>
+            </div>
+            {/* 말풍선 카드(대화 시퀀스) */}
+            <ConversationSequence />
+            <div className="service-categories">
+              {/* ...카드 10개... */}
+            </div>
+            <section className="third-section">
+              <h2 className="third-title">Click. Connect. Learn.</h2>
+              <p className="third-subtitle">
+                Choose your advisor and join the conversation instantly on Google Meet.
+              </p>
+              <div className="meet-logo-box">
+                <img src="/google-meet-logo.svg" alt="Google Meet" className="meet-logo-full" />
+              </div>
+            </section>
+          </>
+        } />
+      </Routes>
+    </div>
   );
 }
 

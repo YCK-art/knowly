@@ -1075,6 +1075,10 @@ body, html, #root, .app-container {
   color: #23272a;
   font-weight: 600;
   margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 .partner-desc {
   font-family: 'NeueHaasDisplayLight', sans-serif;
@@ -1530,13 +1534,14 @@ body, html, #root, .app-container {
 }
 .partner-detail-career {
   margin: 0;
-  max-width: 66%;
-  flex: 0 1 66%;
+  max-width: 100%;
+  flex: 0 1 100%;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   padding: 32px 24px 24px 24px;
   position: relative;
+  margin-bottom: 32px;
 }
 .partner-detail-career::before {
   content: '';
@@ -1552,13 +1557,14 @@ body, html, #root, .app-container {
 }
 .partner-detail-education {
   margin: 0;
-  max-width: 34%;
-  flex: 0 1 auto;
+  max-width: 100%;
+  flex: 0 1 100%;
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   padding: 32px 24px 24px 24px;
   position: relative;
+  margin-bottom: 32px;
 }
 .partner-detail-education::before {
   content: '';
@@ -1948,6 +1954,7 @@ body, html, #root, .app-container {
   display: flex;
   flex-direction: column;
   animation: fadeInMenu 0.18s;
+  font-family: 'NeueHaasDisplayThin' !important;
 }
 @keyframes fadeInMenu {
   from { opacity: 0; transform: translateY(-10px); }
@@ -1959,7 +1966,7 @@ body, html, #root, .app-container {
   padding: 10px 22px;
   cursor: pointer;
   transition: background 0.13s, color 0.13s;
-  font-family: 'NeueHaasDisplayThin', Arial, sans-serif;
+  font-family: 'NeueHaasDisplayThin' !important;
   border: none;
   background: none;
   text-align: left;
@@ -2416,4 +2423,160 @@ body, html, #root, .app-container {
 .profile-form-wrap {
   margin-top: 64px;
   padding: 0 32px 32px 32px;
+}
+
+.calendar-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  padding: 24px;
+  height: fit-content;
+  min-height: 300px;
+}
+
+.calendar-header {
+  margin-bottom: 24px;
+}
+
+.calendar-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #23272a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.calendar-timezone {
+  font-size: 0.9rem;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.calendar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.week-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.day-schedule {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.day-schedule:last-child {
+  border-bottom: none;
+}
+
+.day-label {
+  font-weight: 600;
+  color: #23272a;
+  min-width: 40px;
+  font-size: 0.9rem;
+}
+
+.day-times {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.time-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #555;
+  padding: 2px 0;
+}
+
+.no-time {
+  font-size: 0.85rem;
+  color: #bbb;
+  font-style: italic;
+}
+
+.exception-dates {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+}
+
+.exception-title {
+  font-weight: 600;
+  color: #23272a;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.exception-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exception-date {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.calendar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #bbb;
+  font-style: italic;
+}
+
+.custom-available-day {
+  background: rgba(255, 214, 0, 0.22) !important;
+  color: #23272a !important;
+  border-radius: 50% !important;
+  font-weight: 700;
+  position: relative;
+  z-index: 1;
+}
+
+.react-datepicker__day--selected.custom-available-day,
+.react-datepicker__day--keyboard-selected.custom-available-day {
+  background: #ffe066 !important;
+  color: #23272a !important;
+}
+
+.partner-detail-page, .partner-detail-page * {
+  font-family: 'NeueHaasDisplayThin' !important;
+}
+
+.react-datepicker__header {
+  background: transparent !important;
+  border-bottom: none !important;
+  padding-top: 18px;
+}
+.react-datepicker__current-month, .react-datepicker-time__header, .react-datepicker-year-header {
+  color: #23272a !important;
+  font-weight: 700;
+  font-size: 1.08rem;
+  background: transparent !important;
+}
+.react-datepicker__day-name {
+  color: #23272a !important;
+  font-weight: 600;
+  background: transparent !important;
 }
