@@ -1,70 +1,43 @@
-# Getting Started with Create React App
+# Knowly
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Google Calendar API 설정
 
-## Available Scripts
+실제 Google Meet 링크 생성을 위해 Google Calendar API 설정이 필요합니다:
 
-In the project directory, you can run:
+### 1. Google Cloud Console 설정
 
-### `npm start`
+1. [Google Cloud Console](https://console.cloud.google.com/)에 접속
+2. 새 프로젝트 생성 또는 기존 프로젝트 선택
+3. Google Calendar API 활성화
+4. OAuth 2.0 클라이언트 ID 생성:
+   - 애플리케이션 유형: 웹 애플리케이션
+   - 승인된 리디렉션 URI: `http://localhost:3000/auth/google/callback`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 2. 환경변수 설정
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+`.env` 파일에 다음 설정을 추가:
 
-### `npm test`
+```
+REACT_APP_GOOGLE_CLIENT_ID=your-google-client-id
+REACT_APP_GOOGLE_CLIENT_SECRET=your-google-client-secret
+REACT_APP_GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### 3. 필요한 스코프
 
-### `npm run build`
+- `https://www.googleapis.com/auth/calendar`
+- `https://www.googleapis.com/auth/calendar.events`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 설치 및 실행
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm install
+npm start
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 주요 기능
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- 실제 Google Calendar API를 통한 Google Meet 링크 생성
+- OAuth 2.0 인증을 통한 안전한 API 접근
+- 예약 완료 시 자동으로 캘린더 이벤트 생성
+- 참석자에게 자동 이메일 알림 발송

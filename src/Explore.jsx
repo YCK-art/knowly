@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { db } from './firebase';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { FiHeart } from 'react-icons/fi';
+import { AiFillHeart } from 'react-icons/ai';
 
 const samplePartners = [
   {
@@ -110,9 +111,13 @@ const budgetStep = (budgetMax - budgetMin) / (budgetHistogram.length - 1);
 
 function Explore() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [myAdvisor, setMyAdvisor] = useState(null);
+  const [allAdvisors, setAllAdvisors] = useState([]);
   const [loading, setLoading] = useState(true);
+  // 검색어 상태 추가
+  const [searchTerm, setSearchTerm] = useState(location.state?.searchTerm || '');
   // 모듈형 필터 상태
   const [activeFilters, setActiveFilters] = useState(['all']);
   // Services 드롭다운 상태
@@ -124,7 +129,7 @@ function Explore() {
   const [selectedLanguages, setSelectedLanguages] = useState([]);
   const languageRef = useRef();
   const [budgetOpen, setBudgetOpen] = useState(false);
-  const [budgetRange, setBudgetRange] = useState([200, 1500]);
+  const [budgetRange, setBudgetRange] = useState([budgetMin, budgetMax]);
   const budgetRef = useRef();
   // 즐겨찾기 상태
   const [favorites, setFavorites] = useState([]);
@@ -189,6 +194,17 @@ function Explore() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [serviceOpen, languageOpen, budgetOpen]);
 
+  // location.state.selectedCategory로 진입 시 필터 자동 설정
+  useEffect(() => {
+    if (location.state && location.state.selectedCategory) {
+      setSelectedServices([location.state.selectedCategory]);
+    }
+    // 검색어 state로 진입 시
+    if (location.state && location.state.searchTerm) {
+      setSearchTerm(location.state.searchTerm);
+    }
+  }, [location.state]);
+
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -223,6 +239,9 @@ function Explore() {
             img: data.photoURL || user.photoURL || '/default-profile.png',
             price: minPrice,
             duration: minDuration === 15 ? '15min' : minDuration === 30 ? '30min' : minDuration === 60 ? '1hr' : minDuration === 90 ? '1.5hr' : minDuration === 120 ? '2hr' : `${minDuration}min`,
+            categories: data.categories || [],
+            languages: data.languages || [],
+            pricing: data.pricing || {}
           });
         } else {
           setMyAdvisor(null);
@@ -232,6 +251,60 @@ function Explore() {
       }
     }
     fetchAdvisor();
+  }, [user]);
+
+  // 모든 어드바이저 데이터 가져오기
+  useEffect(() => {
+    async function fetchAllAdvisors() {
+      if (!user) return;
+      
+      setLoading(true);
+      try {
+        const advisors = [];
+        
+        // Firestore에서 모든 사용자 가져오기
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        
+        usersSnapshot.forEach((userDoc) => {
+          const userData = userDoc.data();
+          const userId = userDoc.id;
+          
+          // 어드바이저 데이터가 있는 경우만 추가
+          if (userData.name && userData.headline) {
+            // Pricing 정보 계산
+            let minDuration = 15;
+            let minPrice = 0;
+            if (userData.pricing && userData.pricing.unitPrice && userData.pricing.durations && userData.pricing.durations.length > 0) {
+              minDuration = Math.min(...userData.pricing.durations);
+              minPrice = parseFloat(userData.pricing.unitPrice) * (minDuration / 15);
+            }
+            
+            advisors.push({
+              id: userId,
+              name: userData.name,
+              desc: userData.headline || '',
+              img: userData.profileImg || userData.photoURL || '/default-profile.png',
+              price: minPrice.toFixed(2),
+              duration: minDuration === 15 ? '15min' : minDuration === 30 ? '30min' : minDuration === 60 ? '1hr' : minDuration === 90 ? '1.5hr' : minDuration === 120 ? '2hr' : `${minDuration}min`,
+              categories: userData.categories || [],
+              languages: userData.languages || [],
+              education: userData.education || [],
+              experience: userData.experience || [],
+              introduction: userData.introduction || '',
+              pricing: userData.pricing || {}
+            });
+          }
+        });
+        
+        setAllAdvisors(advisors);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching advisors:', error);
+        setLoading(false);
+      }
+    }
+    
+    fetchAllAdvisors();
   }, [user]);
 
   useEffect(() => {
@@ -246,7 +319,7 @@ function Explore() {
   const toggleFavorite = async (e, partnerId) => {
     e.stopPropagation();
     if (!user) {
-      alert('로그인이 필요합니다!');
+      alert('Login required!');
       return;
     }
     let updated;
@@ -259,174 +332,255 @@ function Explore() {
     await setDoc(doc(db, 'users', user.uid), { favorites: updated }, { merge: true });
   };
 
-  // samplePartners 복사본에 내 어드바이저 정보 삽입(중복 방지)
-  let displayPartners = [...samplePartners];
-  if (myAdvisor) {
-    // 내 정보가 이미 samplePartners에 있으면(중복 방지)
-    const exists = displayPartners.find(p => p.id === myAdvisor.id);
-    if (!exists) {
-      displayPartners[0] = myAdvisor; // 첫 번째 카드에 내 정보 삽입
+  // 통합 검색 + 기존 필터링
+  const filteredAdvisors = allAdvisors.filter(advisor => {
+    const keyword = searchTerm.trim().toLowerCase();
+    // 통합 검색: 이름, desc, introduction, 카테고리, 언어, 학력, 경력
+    const nameMatch = advisor.name?.toLowerCase().includes(keyword);
+    const descMatch = advisor.desc?.toLowerCase().includes(keyword);
+    const introMatch = advisor.introduction?.toLowerCase().includes(keyword);
+    const categoryMatch = advisor.categories?.some(cat => cat.toLowerCase().includes(keyword));
+    const languageMatch = advisor.languages?.some(lang => typeof lang === 'string' && lang.toLowerCase().includes(keyword));
+    const educationMatch = Array.isArray(advisor.education) ? advisor.education.some(edu => typeof edu === 'string' && edu.toLowerCase().includes(keyword)) : false;
+    const experienceMatch = Array.isArray(advisor.experience) ? advisor.experience.some(exp => typeof exp === 'string' && exp.toLowerCase().includes(keyword)) : false;
+    // 하나라도 true면 통과
+    const searchPass = !keyword || nameMatch || descMatch || introMatch || categoryMatch || languageMatch || educationMatch || experienceMatch;
+    if (!searchPass) return false;
+    // 기존 필터
+    if (selectedServices.length > 0) {
+      const hasSelectedService = selectedServices.some(service => 
+        advisor.categories && advisor.categories.includes(service)
+      );
+      if (!hasSelectedService) return false;
     }
-  }
+    if (selectedLanguages.length > 0) {
+      const hasSelectedLanguage = selectedLanguages.some(language => 
+        advisor.languages && advisor.languages.some(advisorLang => {
+          if (typeof advisorLang !== 'string' || typeof language !== 'string') {
+            return false;
+          }
+          return advisorLang.includes(language) || language.includes(advisorLang);
+        })
+      );
+      if (!hasSelectedLanguage) return false;
+    }
+    if (budgetRange[0] !== budgetMin || budgetRange[1] !== budgetMax) {
+      if (advisor.pricing && advisor.pricing.unitPrice) {
+        const minDuration = advisor.pricing.durations?.[0] || 30;
+        const calculatedPrice = parseFloat(advisor.pricing.unitPrice) * (minDuration / 15);
+        if (calculatedPrice < budgetRange[0] || calculatedPrice > budgetRange[1]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  });
+
+  // 실제 데이터만 표시 (더미 데이터 제거)
+  let displayPartners = filteredAdvisors;
 
   return (
     <div className="explore-page">
-      <div className="explore-filters">
-        <div className="explore-categories">
-          {filterOptions.map(opt => (
-            <label key={opt.key} className={`explore-cat-btn${activeFilters.includes(opt.key) ? ' active' : ''}`}>
-              <input
-                type="checkbox"
-                checked={activeFilters.includes(opt.key)}
-                onChange={() => handleFilterToggle(opt.key)}
-                style={{ display: 'none' }}
-              />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-        <div className="explore-options">
-          <div className="services-dropdown" ref={serviceRef}>
-            <button
-              className="services-dropdown-btn"
-              type="button"
-              onClick={() => setServiceOpen(v => !v)}
-            >
-              {selectedServices.length === 0 ? 'Services' : `Services (${selectedServices.length})`}
-              <span className="dropdown-arrow">▼</span>
-            </button>
-            {serviceOpen && (
-              <div className="services-dropdown-list">
-                <label className="services-dropdown-item">
-                  <input
-                    type="checkbox"
-                    checked={isAllChecked}
-                    onChange={handleServiceAllToggle}
-                  />
-                  <span>All</span>
-                </label>
-                {serviceCategories.map(cat => (
-                  <label key={cat} className="services-dropdown-item">
-                    <input
-                      type="checkbox"
-                      checked={selectedServices.includes(cat)}
-                      onChange={() => handleServiceToggle(cat)}
-                    />
-                    <span>{cat}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="services-dropdown" ref={languageRef}>
-            <button
-              className="services-dropdown-btn"
-              type="button"
-              onClick={() => setLanguageOpen(v => !v)}
-            >
-              {selectedLanguages.length === 0 ? 'Language' : `Language (${selectedLanguages.length})`}
-              <span className="dropdown-arrow">▼</span>
-            </button>
-            {languageOpen && (
-              <div className="services-dropdown-list">
-                <label className="services-dropdown-item">
-                  <input
-                    type="checkbox"
-                    checked={isLanguageAllChecked}
-                    onChange={handleLanguageAllToggle}
-                  />
-                  <span>All</span>
-                </label>
-                {languageOptions.map(lang => (
-                  <label key={lang} className="services-dropdown-item">
-                    <input
-                      type="checkbox"
-                      checked={selectedLanguages.includes(lang)}
-                      onChange={() => handleLanguageToggle(lang)}
-                    />
-                    <span>{lang}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="services-dropdown" ref={budgetRef}>
-            <button
-              className="services-dropdown-btn"
-              type="button"
-              onClick={() => setBudgetOpen(v => !v)}
-            >
-              {`Budget ($${budgetRange[0]} - $${budgetRange[1]})`}
-              <span className="dropdown-arrow">▼</span>
-            </button>
-            {budgetOpen && (
-              <div className="services-dropdown-list budget-dropdown-list">
-                <div className="budget-histogram">
-                  {budgetHistogram.map((val, i) => (
-                    <div
-                      key={i}
-                      className="budget-bar"
-                      style={{ height: `${val * 12 + 8}px` }}
-                    />
-                  ))}
-                </div>
-                <div className="budget-slider-wrap">
-                  <Slider
-                    range
-                    min={budgetMin}
-                    max={budgetMax}
-                    step={50}
-                    value={budgetRange}
-                    onChange={setBudgetRange}
-                    allowCross={false}
-                    trackStyle={[{ background: '#ffe066' }]}
-                    handleStyle={[
-                      { borderColor: '#ffe066', background: '#fff' },
-                      { borderColor: '#ffe066', background: '#fff' },
-                    ]}
-                    railStyle={{ background: '#ececec' }}
-                  />
-                  <div className="budget-slider-labels">
-                    <span>${budgetMin}</span>
-                    <span>${budgetMax}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          <select>
-            <option>Advisor details</option>
-          </select>
+      {/* 검색창: 왼쪽 정렬, 아이콘 포함 */}
+      <div className="explore-search-bar" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginBottom: 24 }}>
+        <div style={{ position: 'relative', width: 400 }}>
+          <span style={{
+            position: 'absolute',
+            left: 18,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: '#23272a',
+            fontSize: 22,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="11" cy="11" r="7" stroke="#23272a" strokeWidth="2" fill="none"/>
+              <line x1="17.2" y1="17.2" x2="21" y2="21" stroke="#23272a" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </span>
+          <input
+            type="text"
+            placeholder="Search for someone to talk to..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                setSearchTerm(e.target.value);
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '14px 22px 14px 48px',
+              borderRadius: 24,
+              border: '1.5px solid #ececec',
+              fontSize: 17,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.03)'
+            }}
+          />
         </div>
       </div>
-      <div className="explore-results-count">{displayPartners.length} results</div>
-      <div className="explore-partner-grid">
-        {displayPartners.map(partner => (
-          <div className="partner-card" key={partner.id} onClick={() => navigate(`/partner/${partner.id}`)} style={{cursor:'pointer',position:'relative'}}>
-            {/* 하트 아이콘 */}
-            <span
-              style={{position:'absolute',top:14,right:16,zIndex:2,cursor:'pointer',background:'#fff',borderRadius:'50%',boxShadow:'0 1px 4px #0001',padding:4,transition:'box-shadow 0.13s'}}
-              onClick={e => toggleFavorite(e, partner.id)}
-              title={favorites.includes(partner.id) ? '즐겨찾기 해제' : '즐겨찾기 추가'}
-            >
-              {favorites.includes(partner.id)
-                ? <svg width="26" height="24" viewBox="0 0 26 24" fill="#ffe066" stroke="#ffe066" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.998 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-9.55 11.54l-1.45 1.31z"/></svg>
-                : <svg width="26" height="24" viewBox="0 0 26 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.998 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-9.55 11.54l-1.45 1.31z"/></svg>
-              }
-            </span>
-            <div className="partner-thumb">
-              <img src={partner.img} alt={partner.name} />
-            </div>
-            <div className="partner-info">
-              <div className="partner-title">{partner.name}</div>
-              <div className="partner-desc">{partner.desc}</div>
-              <div className="partner-meta">
-                <span className="partner-price">From ${partner.price} <span className="partner-duration">({partner.duration})</span></span>
-              </div>
-            </div>
-          </div>
+      {/* 모듈형 필터 */}
+      <div className="explore-categories" style={{ marginBottom: 18 }}>
+        {filterOptions.map(opt => (
+          <label key={opt.key} className={`explore-cat-btn${activeFilters.includes(opt.key) ? ' active' : ''}`}>
+            <input
+              type="checkbox"
+              checked={activeFilters.includes(opt.key)}
+              onChange={() => handleFilterToggle(opt.key)}
+              style={{ display: 'none' }}
+            />
+            {opt.label}
+          </label>
         ))}
       </div>
+      {/* 드롭다운 필터 */}
+      <div className="explore-options" style={{ marginBottom: 18 }}>
+        <div className="services-dropdown" ref={serviceRef}>
+          <button
+            className="services-dropdown-btn"
+            type="button"
+            onClick={() => setServiceOpen(v => !v)}
+          >
+            {selectedServices.length === 0 ? 'Services' : `Services (${selectedServices.length})`}
+            <span className="dropdown-arrow">▼</span>
+          </button>
+          {serviceOpen && (
+            <div className="services-dropdown-list">
+              <label className="services-dropdown-item">
+                <input
+                  type="checkbox"
+                  checked={isAllChecked}
+                  onChange={handleServiceAllToggle}
+                />
+                <span>All</span>
+              </label>
+              {serviceCategories.map(cat => (
+                <label key={cat} className="services-dropdown-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedServices.includes(cat)}
+                    onChange={() => handleServiceToggle(cat)}
+                  />
+                  <span>{cat}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="services-dropdown" ref={languageRef}>
+          <button
+            className="services-dropdown-btn"
+            type="button"
+            onClick={() => setLanguageOpen(v => !v)}
+          >
+            {selectedLanguages.length === 0 ? 'Language' : `Language (${selectedLanguages.length})`}
+            <span className="dropdown-arrow">▼</span>
+          </button>
+          {languageOpen && (
+            <div className="services-dropdown-list">
+              <label className="services-dropdown-item">
+                <input
+                  type="checkbox"
+                  checked={isLanguageAllChecked}
+                  onChange={handleLanguageAllToggle}
+                />
+                <span>All</span>
+              </label>
+              {languageOptions.map(lang => (
+                <label key={lang} className="services-dropdown-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedLanguages.includes(lang)}
+                    onChange={() => handleLanguageToggle(lang)}
+                  />
+                  <span>{lang}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="services-dropdown" ref={budgetRef}>
+          <button
+            className="services-dropdown-btn"
+            type="button"
+            onClick={() => setBudgetOpen(v => !v)}
+          >
+            {`Budget ($${budgetRange[0]} - $${budgetRange[1]})`}
+            <span className="dropdown-arrow">▼</span>
+          </button>
+          {budgetOpen && (
+            <div className="services-dropdown-list budget-dropdown-list">
+              <div className="budget-histogram">
+                {budgetHistogram.map((val, i) => (
+                  <div
+                    key={i}
+                    className="budget-bar"
+                    style={{ height: `${val * 12 + 8}px` }}
+                  />
+                ))}
+              </div>
+              <div className="budget-slider-wrap">
+                <Slider
+                  range
+                  min={budgetMin}
+                  max={budgetMax}
+                  step={50}
+                  value={budgetRange}
+                  onChange={setBudgetRange}
+                  allowCross={false}
+                  trackStyle={[{ background: '#ffe066' }]}
+                  handleStyle={[
+                    { borderColor: '#ffe066', background: '#fff' },
+                    { borderColor: '#ffe066', background: '#fff' },
+                  ]}
+                  railStyle={{ background: '#ececec' }}
+                />
+                <div className="budget-slider-labels">
+                  <span>${budgetMin}</span>
+                  <span>${budgetMax}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <select>
+          <option>Advisor details</option>
+        </select>
+      </div>
+      <div className="explore-results-count">
+        {loading ? 'Loading...' : `${displayPartners.length} results`}
+      </div>
+      {!loading && (
+        <div className="explore-partner-grid">
+          {displayPartners.map(partner => (
+            <div className="partner-card" key={partner.id} onClick={() => navigate(`/partner/${partner.id}`)} style={{cursor:'pointer',position:'relative'}}>
+              {/* 하트 아이콘 */}
+              <span
+                style={{position:'absolute',top:14,right:16,zIndex:2,cursor:'pointer',padding:4,transition:'opacity 0.13s'}}
+                onClick={e => toggleFavorite(e, partner.id)}
+                title={favorites.includes(partner.id) ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                {favorites.includes(partner.id)
+                  ? <AiFillHeart size={20} color="#ffe066" />
+                  : <FiHeart size={20} color="#bbb" />
+                }
+              </span>
+              <div className="partner-thumb">
+                <img src={partner.img} alt={partner.name} />
+              </div>
+              <div className="partner-info">
+                <div className="partner-title">{partner.name}</div>
+                <div className="partner-desc">{partner.desc}</div>
+                <div className="partner-meta">
+                  <span className="partner-price">From ${partner.price} <span className="partner-duration">({partner.duration})</span></span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -428,34 +428,38 @@ function Profile({ user }) {
         {forms.map((form, idx) => (
           <div key={idx} style={{ background: '#fff', border: '1.5px solid #ececec', borderRadius: 12, padding: 20, marginBottom: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 16 }}>Company Info</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
-              <div style={{ position: 'relative', flex: 1 }}>
-                <input 
-                  value={form.company} 
-                  onChange={e => handleChange(idx, 'company', e.target.value)} 
-                  placeholder="Company Name" 
-                  style={{ ...inputStyle, background: '#f7f7f7', color: '#23272a', border: '1.5px solid #ececec', flex: 1, paddingLeft: form.logoUrl ? '50px' : '12px' }} 
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 36 }}>
+              {form.logoUrl && (
+                <img
+                  src={form.logoUrl}
+                  alt="logo"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    objectFit: 'contain',
+                    borderRadius: 4,
+                    display: 'block',
+                    margin: 0,
+                    flexShrink: 0
+                  }}
+                  onError={e => { e.target.src = '/default-company-logo.png'; }}
                 />
-                {form.logoUrl && (
-                  <img 
-                    src={form.logoUrl} 
-                    alt="Company logo" 
-                    style={{ 
-                      position: 'absolute', 
-                      left: 12, 
-                      top: '50%', 
-                      transform: 'translateY(-50%)', 
-                      width: 24, 
-                      height: 24, 
-                      borderRadius: 4,
-                      objectFit: 'contain'
-                    }} 
-                    onError={(e) => {
-                      e.target.src = '/default-company-logo.png';
-                    }}
-                  />
-                )}
-              </div>
+              )}
+              <input
+                value={form.company}
+                onChange={e => handleChange(idx, 'company', e.target.value)}
+                placeholder="Company Name"
+                style={{
+                  height: 32,
+                  lineHeight: '32px',
+                  fontSize: 16,
+                  padding: '0 12px',
+                  border: '1.5px solid #ececec',
+                  borderRadius: 6,
+                  flex: 1,
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <input value={form.department} onChange={e => handleChange(idx, 'department', e.target.value)} placeholder="Department" style={{ ...inputStyle, background: '#f7f7f7', color: '#23272a', border: '1.5px solid #ececec', flex: 1 }} />
@@ -509,7 +513,7 @@ function Profile({ user }) {
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button onClick={() => handleSave(idx)} style={{ fontSize: 15, border: 'none', background: '#23272a', color: '#fff', borderRadius: 6, padding: '8px 24px', cursor: 'pointer', fontFamily: 'NeueHaasDisplayThin', fontWeight: 700 }}>Save</button>
               {forms.length > 1 && (
-                <button onClick={() => handleDelete(idx)} style={{ fontSize: 15, border: 'none', background: '#f66', color: '#fff', borderRadius: 6, padding: '8px 24px', cursor: 'pointer', fontFamily: 'NeueHaasDisplayThin', fontWeight: 700 }}>Delete</button>
+                <button onClick={() => handleDelete(idx)} style={{ fontSize: 15, border: 'none', background: '#ececec', color: '#888', borderRadius: 6, padding: '8px 24px', cursor: 'pointer', fontFamily: 'NeueHaasDisplayThin', fontWeight: 700 }}>Delete</button>
               )}
             </div>
             {idx < forms.length - 1 && divider}
@@ -658,108 +662,53 @@ function Profile({ user }) {
           {forms.map((form, idx) => (
             <div key={idx} style={{ background: '#fff', border: '1.5px solid #ececec', borderRadius: 12, padding: 20, marginBottom: 0, position: 'relative' }} ref={el => inputRefs.current[idx] = el}>
               <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 16 }}>University Info</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10, position: 'relative' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
-                  <input
-                    value={form.school}
-                    onChange={e => handleChange(idx, 'school', e.target.value)}
-                    placeholder="University Name"
-                    style={{ ...inputStyle, background: '#f7f7f7', color: '#23272a', border: '1.5px solid #ececec', flex: 1, paddingLeft: form.logoUrl ? '50px' : '12px' }}
-                    autoComplete="off"
-                    onFocus={() => form.suggestions.length > 0 && setForms(forms.map((f, i) => i === idx ? { ...f, showDropdown: true } : f))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 36 }}>
+                {form.logoUrl && (
+                  <img
+                    src={form.logoUrl}
+                    alt="logo"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      objectFit: 'contain',
+                      borderRadius: 4,
+                      display: 'block',
+                      margin: 0,
+                      flexShrink: 0
+                    }}
+                    onError={e => { e.target.src = '/default-university-logo.png'; }}
                   />
-                  {form.logoUrl && (
-                    <img 
-                      src={form.logoUrl} 
-                      alt="University logo" 
-                      style={{ 
-                        position: 'absolute', 
-                        left: 12, 
-                        top: '50%', 
-                        transform: 'translateY(-50%)', 
-                        width: 24, 
-                        height: 24, 
-                        borderRadius: 4,
-                        objectFit: 'contain'
-                      }} 
-                      onError={(e) => {
-                        e.target.src = '/default-university-logo.png';
-                      }}
-                    />
-                  )}
-                </div>
-                {/* 자동완성 드롭다운 */}
-                {form.showDropdown && form.suggestions.length > 0 && (
-                  <div style={{ position: 'absolute', top: 44, left: 0, right: 0, background: '#fff', border: '1.5px solid #ececec', borderRadius: 8, zIndex: 10, boxShadow: '0 2px 12px #0002', maxHeight: 220, overflowY: 'auto' }}>
-                    {form.suggestions.map((s, i) => (
-                      <div key={i} onClick={() => handleSelectSuggestion(idx, s)} style={{ padding: '10px 16px', cursor: 'pointer', fontFamily: 'NeueHaasDisplayThin', color: '#23272a', borderBottom: i !== form.suggestions.length - 1 ? '1px solid #f0f0f0' : 'none', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span style={{ fontWeight: 600 }}>{s.name}</span>
-                        <span style={{ fontSize: 13, color: '#888' }}>{s.country}{s.domains && s.domains.length > 0 ? ` · ${s.domains[0]}` : ''}</span>
-                        {/* 대학 로고는 API에서 제공하지 않으므로 미지원 */}
-                      </div>
-                    ))}
-                  </div>
                 )}
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                <select value={form.degree} onChange={e => handleChange(idx, 'degree', e.target.value)} style={{ ...inputStyle, background: '#f7f7f7', color: '#23272a', border: '1.5px solid #ececec', flex: 1 }}>
-                  <option value="">Select Degree</option>
-                  {DEGREE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-                <input value={form.major} onChange={e => handleChange(idx, 'major', e.target.value)} placeholder="Major" style={{ ...inputStyle, background: '#f7f7f7', color: '#23272a', border: '1.5px solid #ececec', flex: 1 }} />
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                <DatePicker
-                  selected={form.startDate}
-                  onChange={date => handleDateChange(idx, 'start', date)}
-                  dateFormat="yyyy.MM"
-                  showMonthYearPicker
-                  placeholderText="Start (YYYY.MM)"
-                  className="react-datepicker__input-text"
-                  customInput={<input style={{ ...inputStyle, background: '#f7f7f7', color: '#23272a', border: '1.5px solid #ececec', borderRadius: 8, width: 140 }} />}
-                />
-                <DatePicker
-                  selected={form.endDate}
-                  onChange={date => handleDateChange(idx, 'end', date)}
-                  dateFormat="yyyy.MM"
-                  showMonthYearPicker
-                  placeholderText="End (YYYY.MM)"
-                  className="react-datepicker__input-text"
-                  customInput={<input style={{ ...inputStyle, background: form.isCurrent ? '#ececec' : '#f7f7f7', color: form.isCurrent ? '#bbb' : '#23272a', border: '1.5px solid #ececec', borderRadius: 8, width: 140 }} disabled={form.isCurrent} />}
-                  disabled={form.isCurrent}
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-                <input type="checkbox" checked={form.isCurrent} onChange={e => handleChange(idx, 'isCurrent', e.target.checked)} style={{ marginRight: 8, accentColor: form.isCurrent ? '#ffe066' : '#ececec', width: 18, height: 18 }} />
-                <span style={{ fontSize: 15 }}>Currently enrolled</span>
-              </div>
-              <div style={{ marginBottom: 10 }}>
-                <textarea
-                  value={form.desc}
-                  onChange={e => handleChange(idx, 'desc', e.target.value)}
-                  placeholder="Additional details (optional)"
+                <input
+                  value={form.school}
+                  onChange={e => handleChange(idx, 'school', e.target.value)}
+                  placeholder="University Name"
                   style={{
-                    ...inputStyle,
-                    background: '#f7f7f7',
-                    color: '#23272a',
+                    height: 32,
+                    lineHeight: '32px',
+                    fontSize: 16,
+                    padding: '0 12px',
                     border: '1.5px solid #ececec',
-                    minHeight: 60,
-                    resize: 'vertical',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    display: 'block',
-                    borderRadius: 8,
-                    marginRight: 0
+                    borderRadius: 6,
+                    flex: 1,
+                    boxSizing: 'border-box'
                   }}
+                  autoComplete="off"
+                  onFocus={() => form.suggestions.length > 0 && setForms(forms.map((f, i) => i === idx ? { ...f, showDropdown: true } : f))}
                 />
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button onClick={() => handleSave(idx)} style={{ fontSize: 15, border: 'none', background: '#23272a', color: '#fff', borderRadius: 6, padding: '8px 24px', cursor: 'pointer', fontFamily: 'NeueHaasDisplayThin', fontWeight: 700 }}>Save</button>
-                {forms.length > 1 && (
-                  <button onClick={() => handleDelete(idx)} style={{ fontSize: 15, border: 'none', background: '#f66', color: '#fff', borderRadius: 6, padding: '8px 24px', cursor: 'pointer', fontFamily: 'NeueHaasDisplayThin', fontWeight: 700 }}>Delete</button>
-                )}
-              </div>
-              {idx < forms.length - 1 && divider}
+              {/* 자동완성 드롭다운 */}
+              {form.showDropdown && form.suggestions.length > 0 && (
+                <div style={{ position: 'absolute', top: 44, left: 0, right: 0, background: '#fff', border: '1.5px solid #ececec', borderRadius: 8, zIndex: 10, boxShadow: '0 2px 12px #0002', maxHeight: 220, overflowY: 'auto' }}>
+                  {form.suggestions.map((s, i) => (
+                    <div key={i} onClick={() => handleSelectSuggestion(idx, s)} style={{ padding: '10px 16px', cursor: 'pointer', fontFamily: 'NeueHaasDisplayThin', color: '#23272a', borderBottom: i !== form.suggestions.length - 1 ? '1px solid #f0f0f0' : 'none', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ fontWeight: 600 }}>{s.name}</span>
+                      <span style={{ fontSize: 13, color: '#888' }}>{s.country}{s.domains && s.domains.length > 0 ? ` · ${s.domains[0]}` : ''}</span>
+                      {/* 대학 로고는 API에서 제공하지 않으므로 미지원 */}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -855,7 +804,7 @@ function Profile({ user }) {
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => handleEdit(idx)} style={{ fontSize: 15, border: 'none', background: '#ececec', color: '#23272a', borderRadius: 6, padding: '4px 14px', cursor: 'pointer' }}>Edit</button>
-                  <button onClick={() => handleDelete(idx)} style={{ fontSize: 15, border: 'none', background: '#f66', color: '#fff', borderRadius: 6, padding: '4px 14px', cursor: 'pointer' }}>Delete</button>
+                  <button onClick={() => handleDelete(idx)} style={{ fontSize: 15, border: 'none', background: '#ececec', color: '#888', borderRadius: 6, padding: '4px 14px', cursor: 'pointer' }}>Delete</button>
                 </div>
               </li>
             ))}
@@ -891,7 +840,7 @@ function Profile({ user }) {
 
   // About Me Section (ExperienceSection과 동일한 구조)
   const AboutMeSection = () => {
-    const [form, setForm] = useState({ name: '', quote: '', headline: '' });
+    const [form, setForm] = useState({ name: '', quote: '', headline: '', linkedin: '' });
 
     // Firestore fetch → form 동기화
     useEffect(() => {
@@ -903,7 +852,8 @@ function Profile({ user }) {
           setForm({
             name: data.name || user.displayName || '',
             quote: data.quote || '',
-            headline: data.headline || ''
+            headline: data.headline || '',
+            linkedin: data.linkedin || ''
           });
         }
       };
@@ -951,8 +901,71 @@ function Profile({ user }) {
               style={{ width: '100%', background: '#f7f7f7', color: '#23272a', border: '1.5px solid #ececec', borderRadius: 12, padding: '14px 16px', fontSize: 17, fontFamily: 'NeueHaasDisplayThin', marginBottom: 0, boxSizing: 'border-box' }}
             />
           </div>
+          <div style={{ marginBottom: 22 }}>
+            <label style={{ fontFamily: 'NeueHaasDisplayThin', fontWeight: 500, marginBottom: 6, color: '#888', display: 'block', fontSize: 15 }}>LinkedIn Profile</label>
+            <input
+              value={form.linkedin}
+              onChange={e => setForm({ ...form, linkedin: e.target.value })}
+              placeholder="https://linkedin.com/in/your-profile"
+              style={{ width: '100%', background: '#f7f7f7', color: '#23272a', border: '1.5px solid #ececec', borderRadius: 12, padding: '14px 16px', fontSize: 17, fontFamily: 'NeueHaasDisplayThin', marginBottom: 0, boxSizing: 'border-box' }}
+            />
+          </div>
           <div style={{ textAlign: 'left', marginTop: 18 }}>
-            <button onClick={async () => { await saveField({ name: form.name, quote: form.quote, headline: form.headline }); }} style={{ fontFamily: 'NeueHaasDisplayThin', fontSize: 17, border: 'none', background: '#23272a', color: '#fff', borderRadius: 8, padding: '10px 32px', cursor: 'pointer', fontWeight: 700 }} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+            <button onClick={async () => { await saveField({ name: form.name, quote: form.quote, headline: form.headline, linkedin: form.linkedin }); }} style={{ fontFamily: 'NeueHaasDisplayThin', fontSize: 17, border: 'none', background: '#23272a', color: '#fff', borderRadius: 8, padding: '10px 32px', cursor: 'pointer', fontWeight: 700 }} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Introduction Section
+  const IntroductionSection = () => {
+    const [introduction, setIntroduction] = useState('');
+
+    // Firestore fetch → form 동기화
+    useEffect(() => {
+      if (!user) return;
+      const fetchProfile = async () => {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setIntroduction(data.introduction || '');
+        }
+      };
+      fetchProfile();
+    }, [user]);
+
+    return (
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: 0 }}>
+        <div style={{ background: '#fff', borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.13)', border: '1.5px solid #ececec', padding: '36px 32px 32px 32px', color: '#23272a' }}>
+          <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 8, fontFamily: 'NeueHaasDisplayThin', color: '#23272a' }}>Introduction</div>
+          <div style={{ borderTop: '1.5px solid #ececec', margin: '18px 0 28px 0' }} />
+          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 18, fontFamily: 'NeueHaasDisplayThin', color: '#23272a' }}>Tell us about yourself</div>
+          <div style={{ marginBottom: 22 }}>
+            <label style={{ fontFamily: 'NeueHaasDisplayThin', fontWeight: 500, marginBottom: 6, color: '#888', display: 'block', fontSize: 15 }}>Introduction</label>
+            <textarea
+              value={introduction}
+              onChange={e => setIntroduction(e.target.value)}
+              placeholder="Write a detailed introduction about yourself, your background, expertise, and what you can help others with..."
+              style={{ 
+                width: '100%', 
+                minHeight: 200, 
+                background: '#f7f7f7', 
+                color: '#23272a', 
+                border: '1.5px solid #ececec', 
+                borderRadius: 12, 
+                padding: '16px 18px', 
+                fontSize: 16, 
+                fontFamily: 'NeueHaasDisplayThin', 
+                marginBottom: 0, 
+                boxSizing: 'border-box',
+                resize: 'vertical',
+                lineHeight: 1.5
+              }}
+            />
+          </div>
+          <div style={{ textAlign: 'left', marginTop: 18 }}>
+            <button onClick={async () => { await saveField({ introduction: introduction }); }} style={{ fontFamily: 'NeueHaasDisplayThin', fontSize: 17, border: 'none', background: '#23272a', color: '#fff', borderRadius: 8, padding: '10px 32px', cursor: 'pointer', fontWeight: 700 }} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
           </div>
         </div>
       </div>
@@ -992,6 +1005,7 @@ function Profile({ user }) {
       <aside style={sidebarStyle}>
         <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 32, textAlign: 'center', letterSpacing: 1 }}>Profile</div>
         <button style={sidebarItemStyle(selected === 'about')} onClick={() => setSelected('about')}>About Me</button>
+        <button style={sidebarItemStyle(selected === 'introduction')} onClick={() => setSelected('introduction')}>Introduction</button>
         <button style={sidebarItemStyle(selected === 'experience')} onClick={() => setSelected('experience')}>Experience</button>
         <button style={sidebarItemStyle(selected === 'education')} onClick={() => setSelected('education')}>Education</button>
         <button style={sidebarItemStyle(selected === 'languages')} onClick={() => setSelected('languages')}>Languages</button>
@@ -1001,6 +1015,7 @@ function Profile({ user }) {
       </aside>
       <main style={{ flex: 1, background: '#fff', minHeight: '100vh', fontFamily: 'NeueHaasDisplayThin' }}>
         {selected === 'about' && <AboutMeSection />}
+        {selected === 'introduction' && <IntroductionSection />}
         {selected === 'experience' && <ExperienceSection />}
         {selected === 'education' && <EducationSection />}
         {selected === 'languages' && <LanguagesSection />}

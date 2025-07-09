@@ -1029,8 +1029,9 @@ body, html, #root, .app-container {
 
 .explore-partner-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(270px, 280px));
   gap: 28px;
+  justify-content: start;
 }
 
 .partner-card {
@@ -1452,7 +1453,7 @@ body, html, #root, .app-container {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  background: #f6fafd;
+  background: #fff;
   border-radius: 18px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   padding: 0 0 32px 0;
@@ -2579,4 +2580,153 @@ body, html, #root, .app-container {
   color: #23272a !important;
   font-weight: 600;
   background: transparent !important;
+}
+
+.partner-detail-career, .partner-detail-career * {
+  font-family: 'NeueHaasDisplayThin', Arial, sans-serif !important;
+}
+.partner-detail-education, .partner-detail-education * {
+  font-family: 'NeueHaasDisplayThin', Arial, sans-serif !important;
+}
+
+.partner-detail-categories {
+  margin: 0;
+  max-width: 100%;
+  flex: 0 1 100%;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  padding: 32px 24px 24px 24px;
+  position: relative;
+  margin-bottom: 32px;
+  border: none;
+  border-top: 6px solid #ffe066;
+  font-family: 'NeueHaasDisplayThin', Arial, sans-serif;
+  transition: box-shadow 0.18s, border 0.18s;
+}
+
+.partner-detail-categories h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 28px;
+  color: #23272a;
+}
+
+.categories-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.category-tag {
+  font-size: 16px;
+  font-weight: 700;
+  background: #fffbe6;
+  color: #23272a;
+  border-radius: 18px;
+  padding: 8px 20px;
+  border: 1.5px solid #ffe066;
+  margin-right: 6px;
+  margin-bottom: 6px;
+  box-shadow: 0 1px 4px #ffe06622;
+  font-family: 'NeueHaasDisplayThin', Arial, sans-serif;
+  letter-spacing: 0.01em;
+  transition: all 0.13s;
+  cursor: default;
+}
+
+.partner-detail-languages {
+  margin: 48px 0 0 0;
+  max-width: 66%;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  padding: 32px 24px 24px 24px;
+  font-family: 'NeueHaasDisplayThin', Arial, sans-serif !important;
+  position: relative;
+}
+.partner-detail-languages::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  background: #22c55e;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+.partner-detail-languages h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 28px;
+  color: #23272a;
+}
+.language-item {
+  margin-bottom: 24px;
+}
+.language-name {
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: #23272a;
+  margin-bottom: 4px;
+}
+.language-level {
+  font-size: 1.05rem;
+  color: #666;
+  margin-bottom: 2px;
+}
+.language-divider {
+  border: none;
+  border-top: 2px solid #eee;
+  margin: 18px 0 18px 0;
+}
+
+.partner-detail-introduction {
+  margin: 0;
+  max-width: 100%;
+  flex: 0 1 100%;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  padding: 32px 24px 24px 24px;
+  position: relative;
+  margin-bottom: 32px;
+}
+
+.partner-detail-introduction::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  background: #ff6b35;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.partner-detail-introduction h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 28px;
+  color: #23272a;
+}
+
+.introduction-content {
+  font-size: 1rem;
+  color: #23272a;
+  line-height: 1.6;
+  font-family: 'NeueHaasDisplayThin', Arial, sans-serif;
+  white-space: pre-wrap;
+}
+
+/* 로딩 스피너 애니메이션 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

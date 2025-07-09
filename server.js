@@ -1,65 +1,129 @@
 require('dotenv').config();
 const express = require('express');
-const { google } = require('googleapis');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const path = require('path');
+const { google } = require('googleapis');
 
 const app = express();
-app.use(cors());
+
+// 미들웨어 설정
+app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
+
+// Google OAuth2 설정
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback';
+const SERVER_PORT = process.env.SERVER_PORT || 3000;
 
 const oAuth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
+  CLIENT_ID,
+  CLIENT_SECRET,
+  REDIRECT_URI
 );
 
-// 1. 인증 URL 생성
-app.get('/auth/google', (req, res) => {
+// API 라우트들
+app.get('/api/auth/google', (req, res) => {
   const url = oAuth2Client.generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/calendar'],
-    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/calendar.events'
+    ],
+    prompt: 'consent'
   });
-  res.redirect(url);
+  res.json({ url });
 });
 
-// 2. 인증 후 콜백
-app.get('/auth/google/callback', async (req, res) => {
+app.get('/api/auth/google/callback', async (req, res) => {
   const { code } = req.query;
   try {
     const { tokens } = await oAuth2Client.getToken(code);
-    oAuth2Client.setCredentials(tokens);
-    // 실제 서비스에서는 토큰을 DB/세션에 저장
-    res.send('Google 인증 성공! 이제 캘린더 연동이 가능합니다.');
+    res.cookie('google_token', JSON.stringify(tokens), { httpOnly: true });
+    res.redirect('/');
   } catch (err) {
-    res.status(500).send('인증 실패: ' + err.message);
+    res.status(500).send('구글 인증 실패');
   }
 });
 
-// 3. 예약 이벤트 생성 (Google Meet 링크 포함)
-app.post('/calendar/create', async (req, res) => {
-  // 실제 서비스에서는 사용자별로 토큰을 불러와야 함
-  // 여기서는 예시로 oAuth2Client에 이미 토큰이 세팅되어 있다고 가정
+app.post('/api/create-meet', async (req, res) => {
   try {
+    const tokens = JSON.parse(req.cookies.google_token || '{}');
+    oAuth2Client.setCredentials(tokens);
+
     const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
+    const { summary, description, start, end, attendees } = req.body;
+
     const event = {
-      summary: req.body.summary || '상담 예약',
-      start: { dateTime: req.body.start },
-      end: { dateTime: req.body.end },
-      conferenceData: { createRequest: { requestId: 'meet-' + Date.now() } },
-      attendees: req.body.attendees || [],
+      summary: summary || '상담 미팅',
+      description: description || '상담 내용',
+      start: { dateTime: start, timeZone: 'Asia/Seoul' },
+      end: { dateTime: end, timeZone: 'Asia/Seoul' },
+      attendees: attendees || [],
+      conferenceData: {
+        createRequest: {
+          requestId: 'meet-' + Date.now(),
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
+        }
+      }
     };
+
     const response = await calendar.events.insert({
       calendarId: 'primary',
       resource: event,
-      conferenceDataVersion: 1,
+      conferenceDataVersion: 1
     });
-    res.json({ meetLink: response.data.hangoutLink, event: response.data });
+
+    res.json({ meetLink: response.data.hangoutLink });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Google Meet 생성 오류:', err);
+    res.status(500).json({ error: 'Google Meet 생성 실패' });
   }
 });
 
-app.listen(5000, () => {
-  console.log('Server running on http://localhost:5000');
+// 정적 파일 서빙
+app.use(express.static('build'));
+
+// React 라우팅 처리
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.get('/partner/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.get('/explore', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.get('/profile', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.get('/favorites', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.get('/signin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.get('/onboarding', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.get('/onboarding-congrats', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+// 기타 모든 라우트
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+app.listen(SERVER_PORT, () => {
+  console.log(`서버 실행중: http://localhost:${SERVER_PORT}`);
 }); 

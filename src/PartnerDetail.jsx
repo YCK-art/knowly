@@ -4,10 +4,11 @@ import { db } from './firebase';
 import { getAuth } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { MdCalendarToday, MdAccessTime, MdLocationOn } from 'react-icons/md';
+import { FaLinkedin } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, toZonedTime } from 'date-fns-tz';
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
+import { generateSimpleMeetLink } from './utils/googleCalendar';
 
 // samplePartners는 실제로는 별도 데이터/상태로 분리하는 것이 좋으나, 우선 Explore의 samplePartners와 동일하게 복사
 const samplePartners = [
@@ -88,9 +89,9 @@ function MeetingBookingModal({ open, onClose, pricing, onSubmit }) {
   const unitPrice = pricing?.unitPrice || 0;
   const [selectedDuration, setSelectedDuration] = useState(durations[0]);
   const [question, setQuestion] = useState('');
-  const [showPayPal, setShowPayPal] = useState(false);
   const [meetLink, setMeetLink] = useState('');
-  const [pendingInfo, setPendingInfo] = useState(null);
+  const [isCreatingMeet, setIsCreatingMeet] = useState(false);
+  const [error, setError] = useState('');
 
   // 가격 계산 함수
   const getPrice = (duration) => {
@@ -98,18 +99,27 @@ function MeetingBookingModal({ open, onClose, pricing, onSubmit }) {
     return (parseFloat(unitPrice) * (duration / 15)).toFixed(2);
   };
 
-  const handleNext = () => {
-    setShowPayPal(true);
-    setPendingInfo({ duration: selectedDuration, question });
-  };
-
-  const handlePaymentSuccess = () => {
-    // Google Meet 링크 생성 (간단 버전)
-    const meetUrl = 'https://meet.google.com/new';
-    setMeetLink(meetUrl);
-    setShowPayPal(false);
-    // 예약 정보와 meetUrl을 onSubmit으로 전달
-    if (pendingInfo) onSubmit(pendingInfo.duration, pendingInfo.question, meetUrl);
+  // 실제 Google Meet 링크 생성 (플랫폼에서 자동 생성)
+  const handleNext = async () => {
+    setIsCreatingMeet(true);
+    setError('');
+    
+    try {
+      // 플랫폼에서 실제 Google Meet 링크 자동 생성
+      const meetUrl = await generateSimpleMeetLink();
+      
+      // 로딩 효과를 위해 1초 대기
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setMeetLink(meetUrl);
+      if (onSubmit) onSubmit(selectedDuration, question, meetUrl);
+      
+    } catch (error) {
+      console.error('Meet 링크 생성 오류:', error);
+      setError('Google Meet 링크 생성 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+      setIsCreatingMeet(false);
+    }
   };
 
   if (!open) return null;
@@ -117,57 +127,44 @@ function MeetingBookingModal({ open, onClose, pricing, onSubmit }) {
   return (
     <div style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',background:'rgba(0,0,0,0.18)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{background:'#fff',borderRadius:18,minWidth:340,maxWidth:420,minHeight:520,padding:'44px 32px 36px 32px',boxShadow:'0 4px 32px rgba(0,0,0,0.13)',fontFamily:'NeueHaasDisplayThin',display:'flex',flexDirection:'column',gap:28,position:'relative'}}>
-        {!showPayPal && !meetLink && <>
-          <div style={{fontWeight:700,fontSize:24,marginBottom:8,color:'#205080'}}>Book a Meeting</div>
-          <div style={{fontSize:17,fontWeight:600,marginBottom:4}}>Select meeting duration</div>
+        {!meetLink && !isCreatingMeet && <>
+          <div style={{fontWeight:700,fontSize:24,marginBottom:8,color:'#205080'}}>미팅 예약</div>
+          <div style={{fontSize:17,fontWeight:600,marginBottom:4}}>미팅 시간 선택</div>
           <div style={{display:'flex',gap:18,marginBottom:8}}>
             {durations.map((d) => (
               <label key={d} style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'18px 28px',border:'1.5px solid',borderColor:selectedDuration===d?'#205080':'#ececec',borderRadius:12,cursor:'pointer',background:selectedDuration===d?'#eaf3fa':'#fafbfc',transition:'border 0.13s'}}>
                 <input type="radio" name="duration" value={d} checked={selectedDuration===d} onChange={()=>setSelectedDuration(d)} style={{display:'none'}} />
-                <span style={{fontSize:20,fontWeight:700}}>{d} min</span>
+                <span style={{fontSize:20,fontWeight:700}}>{d}분</span>
                 <span style={{fontSize:16,color:'#205080',marginTop:6}}>${getPrice(d)}</span>
               </label>
             ))}
           </div>
-          <div style={{fontSize:17,fontWeight:600,marginBottom:4}}>What do you want to ask or discuss?</div>
-          <textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Write your question, goal, or what you want from this meeting..." style={{width:'100%',minHeight:140,borderRadius:12,border:'1.5px solid #ececec',padding:'16px 24px 16px 16px',fontSize:17,fontFamily:'NeueHaasDisplayThin',marginBottom:8,resize:'vertical',color:'#23272a',background:'#fafbfc',boxSizing:'border-box'}} />
+          <div style={{fontSize:17,fontWeight:600,marginBottom:4}}>질문 또는 논의하고 싶은 내용을 입력하세요</div>
+          <textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="미팅에서 다루고 싶은 내용, 목표 등을 입력하세요..." style={{width:'100%',minHeight:140,borderRadius:12,border:'1.5px solid #ececec',padding:'16px 24px 16px 16px',fontSize:17,fontFamily:'NeueHaasDisplayThin',marginBottom:8,resize:'vertical',color:'#23272a',background:'#fafbfc',boxSizing:'border-box'}} />
+          {error && (
+            <div style={{color:'#e74c3c',fontSize:14,marginBottom:8}}>{error}</div>
+          )}
           <div style={{display:'flex',gap:14,justifyContent:'flex-end',marginTop:12}}>
-            <button onClick={onClose} style={{background:'#f5f5f5',color:'#205080',border:'1.5px solid #ececec',borderRadius:8,padding:'12px 32px',fontSize:17,fontWeight:600,cursor:'pointer'}}>Cancel</button>
-            <button onClick={handleNext} style={{background:'#205080',color:'#fff',border:'none',borderRadius:8,padding:'12px 38px',fontSize:17,fontWeight:700,cursor:'pointer'}}>Next</button>
+            <button onClick={onClose} style={{background:'#f5f5f5',color:'#205080',border:'1.5px solid #ececec',borderRadius:8,padding:'12px 32px',fontSize:17,fontWeight:600,cursor:'pointer'}}>취소</button>
+            <button onClick={handleNext} style={{background:'#205080',color:'#fff',border:'none',borderRadius:8,padding:'12px 38px',fontSize:17,fontWeight:700,cursor:'pointer'}}>다음</button>
           </div>
         </>}
-        {showPayPal && !meetLink && (
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',minHeight:320,position:'relative'}}>
-            {/* 오른쪽 상단 X 버튼 */}
-            <button onClick={()=>setShowPayPal(false)} style={{position:'absolute',top:10,right:10,fontSize:24,background:'none',border:'none',cursor:'pointer',color:'#888',zIndex:10}} aria-label="닫기">×</button>
-            {/* Payments 제목 */}
-            <div style={{fontWeight:700,fontSize:22,marginBottom:32,marginTop:8,color:'#205080',fontFamily:'NeueHaasDisplayThin',letterSpacing:0.2}}>Payments</div>
-            {/* PayPal 버튼 영역 중앙 정렬 */}
-            <div style={{width:'100%',maxWidth:380,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24}}>
-              <PayPalScriptProvider options={{ 'client-id': 'AQrVAO5-QMZwYQ7tepwmnOMIupGXtzCuhLzKhgcGi0WSoBP1JK2LX_5CKz21x8yrSS_u-eX613Qk45f8' }}>
-                <PayPalButtons
-                  style={{ layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' }}
-                  createOrder={(data, actions) => {
-                    return actions.order.create({
-                      purchase_units: [{ amount: { value: getPrice(selectedDuration) } }]
-                    });
-                  }}
-                  onApprove={(data, actions) => {
-                    return actions.order.capture().then(handlePaymentSuccess);
-                  }}
-                  onCancel={()=>setShowPayPal(false)}
-                />
-              </PayPalScriptProvider>
+        {isCreatingMeet && (
+          <div style={{textAlign:'center',marginTop:40}}>
+            <div style={{fontWeight:700,fontSize:22,color:'#205080',marginBottom:18}}>Google Meet 생성 중...</div>
+            <div style={{fontSize:17,marginBottom:12}}>잠시만 기다려주세요.</div>
+            <div style={{marginTop:24}}>
+              <div style={{width:40,height:40,border:'4px solid #f3f3f3',borderTop:'4px solid #205080',borderRadius:'50%',animation:'spin 1s linear infinite',margin:'0 auto'}}></div>
             </div>
           </div>
         )}
         {meetLink && (
           <div style={{textAlign:'center',marginTop:40}}>
-            <div style={{fontWeight:700,fontSize:22,color:'#205080',marginBottom:18}}>Payment Complete!</div>
-            <div style={{fontSize:17,marginBottom:12}}>Your Google Meet link:</div>
+            <div style={{fontWeight:700,fontSize:22,color:'#205080',marginBottom:18}}>예약이 완료되었습니다!</div>
+            <div style={{fontSize:17,marginBottom:12}}>Google Meet 링크:</div>
             <a href={meetLink} target="_blank" rel="noopener noreferrer" style={{fontSize:18,color:'#1a73e8',fontWeight:700,textDecoration:'underline'}}>{meetLink}</a>
             <div style={{marginTop:24}}>
-              <button onClick={onClose} style={{background:'#205080',color:'#fff',border:'none',borderRadius:8,padding:'12px 38px',fontSize:17,fontWeight:700,cursor:'pointer'}}>Close</button>
+              <button onClick={onClose} style={{background:'#205080',color:'#fff',border:'none',borderRadius:8,padding:'12px 38px',fontSize:17,fontWeight:700,cursor:'pointer'}}>닫기</button>
             </div>
           </div>
         )}
@@ -245,25 +242,21 @@ function PartnerDetail() {
 
   useEffect(() => {
     async function fetchProfile() {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (user && String(id) === String(user.uid)) {
-        // 내 프로필 Firestore에서 불러오기
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setProfile({ ...data, id: user.uid });
-          if (data.availableTime) setAvailableTime(data.availableTime);
-          if (data.availableTimezone) setAvailableTimezone(data.availableTimezone);
-          if (data.availableExceptions) {
-            setAvailableExceptions(data.availableExceptions.map(ts => new Date(ts)));
-          }
-          if (data.pricing && data.pricing.durations) setPricingDurations(data.pricing.durations);
+      // Firestore에서 어드바이저 데이터 우선 조회
+      const userDoc = await getDoc(doc(db, 'users', id));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setProfile({ ...data, id });
+        if (data.availableTime) setAvailableTime(data.availableTime);
+        if (data.availableTimezone) setAvailableTimezone(data.availableTimezone);
+        if (data.availableExceptions) {
+          setAvailableExceptions(data.availableExceptions.map(ts => new Date(ts)));
         }
+        if (data.pricing && data.pricing.durations) setPricingDurations(data.pricing.durations);
         setLoading(false);
         return;
       }
-      // 더미데이터 fallback
+      // 샘플 데이터 fallback
       const partner = samplePartners.find(p => String(p.id) === String(id));
       setProfile(partner || null);
       setLoading(false);
@@ -286,16 +279,26 @@ function PartnerDetail() {
     setBookingOpen(true);
   };
 
-  // 예약 제출 핸들러 (PayPal 연동 전 단계)
-  const handleBookingSubmit = (duration, question) => {
-    setBookingInfo({ date: bookingDate, time: bookingTime, duration, question });
-    setBookingOpen(false);
-    // PayPal 결제 모달/페이지로 이동 예정
-    // ...
+  // 예약 제출 핸들러 (예약 완료 후 처리)
+  const handleBookingSubmit = (duration, question, meetLink) => {
+    // 예약 정보 저장
+    setBookingInfo({ 
+      date: bookingDate, 
+      time: bookingTime, 
+      duration, 
+      question,
+      meetLink 
+    });
+    
+    // 여기서는 모달을 닫지 않음 - MeetingBookingModal에서 처리
+    console.log('예약 완료:', { duration, question, meetLink });
+    
+    // TODO: Firestore에 예약 정보 저장
+    // TODO: 어드바이저에게 알림 발송
   };
 
   if (loading) return <div style={{padding:40}}>Loading...</div>;
-  if (!profile) return <div style={{padding:40}}>존재하지 않는 파트너입니다.</div>;
+  if (!profile) return <div style={{padding:40}}>Advisor does not exist.</div>;
 
   // Firestore 기반 내 프로필 렌더링
   const isMine = profile && profile.id && String(profile.id).length > 10; // Firestore uid는 10자 이상
@@ -468,7 +471,29 @@ function PartnerDetail() {
             <img src={photo} alt={name} className="profile-img-linkedin" />
           </div>
           <div className="profile-info-linkedin">
-            <div className="profile-name-linkedin">{name}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+              <div className="profile-name-linkedin">{name}</div>
+              {profile.linkedin && (
+                <a 
+                  href={profile.linkedin} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    color: '#0077b5', 
+                    textDecoration: 'none',
+                    transition: 'opacity 0.13s',
+                    marginTop: '2px'
+                  }}
+                  onMouseEnter={e => e.target.style.opacity = '0.7'}
+                  onMouseLeave={e => e.target.style.opacity = '1'}
+                  title="View LinkedIn Profile"
+                >
+                  <FaLinkedin size={18} />
+                </a>
+              )}
+            </div>
             <div className="profile-bio-linkedin">{headline}</div>
             <div className="profile-bio-divider"></div>
             {quote && <div className="profile-desc-linkedin">"{quote}"</div>}
@@ -534,12 +559,21 @@ function PartnerDetail() {
       {/* Experience & Education & Languages 세로 배치 */}
       {/* Advisor Categories 표시 영역 */}
       {profile.categories && profile.categories.length > 0 && (
-        <div style={{width:'100%',maxWidth:'100%',margin:'48px 0 32px 0',padding:'32px 24px 24px 24px',background:'#fafbfc',borderRadius:16,boxShadow:'0 2px 12px rgba(0,0,0,0.04)',border:'none',borderTop:'6px solid #ffe066',fontFamily:'NeueHaasDisplayThin',transition:'box-shadow 0.18s, border 0.18s'}}>
-          <div style={{fontWeight:700,fontSize:'1.3rem',marginBottom:28,color:'#23272a'}}>Advisor Categories</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:14,justifyContent:'flex-start',alignItems:'center'}}>
+        <div className="partner-detail-categories">
+          <h3>Advisor Categories</h3>
+          <div className="categories-list">
             {profile.categories.map((cat,i)=>(
-              <span key={i} style={{fontSize:16,fontWeight:700,background:'#fffbe6',color:'#23272a',borderRadius:18,padding:'8px 20px',border:'1.5px solid #ffe066',marginRight:6,marginBottom:6,boxShadow:'0 1px 4px #ffe06622',fontFamily:'NeueHaasDisplayThin',letterSpacing:'0.01em',transition:'all 0.13s',cursor:'default'}}>{cat}</span>
+              <span key={i} className="category-tag">{cat}</span>
             ))}
+          </div>
+        </div>
+      )}
+      {/* Introduction 표시 영역 */}
+      {profile.introduction && (
+        <div className="partner-detail-introduction">
+          <h3>Introduction</h3>
+          <div className="introduction-content">
+            {profile.introduction}
           </div>
         </div>
       )}

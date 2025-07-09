@@ -30,12 +30,14 @@ function App() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [signInMode, setSignInMode] = useState('signup');
   const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [onboardingRole, setOnboardingRole] = useState('pending');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showOnboardingDone, setShowOnboardingDone] = useState(false);
   const [isLoadingRole, setIsLoadingRole] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [mainSearch, setMainSearch] = useState('');
 
   const navigate = useNavigate();
 
@@ -43,6 +45,7 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'No user');
       setUser(firebaseUser);
+      setAuthLoading(false);
       if (firebaseUser) setShowSignIn(false);
     });
     return () => unsubscribe();
@@ -130,7 +133,9 @@ function App() {
         </div>
         <div className="nav-links">
           <a href="/explore" className="nav-link nav-bold">Explore</a>
-          {user ? (
+          {authLoading ? (
+            <div style={{ width: 260, height: 40 }} />
+          ) : user ? (
             <>
               <span className="nav-icon-btn"><FiBell size={26} /></span>
               <span className="nav-icon-btn"><FiMail size={26} /></span>
@@ -251,14 +256,27 @@ function App() {
                       </g>
                     </svg>
                   </div>
-                  <input type="text" placeholder="Search for someone to talk to..." />
+                  <input
+                    type="text"
+                    placeholder="Search for someone to talk to..."
+                    value={mainSearch}
+                    onChange={e => setMainSearch(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && mainSearch.trim()) {
+                        navigate('/explore', { state: { searchTerm: mainSearch.trim() } });
+                      }
+                    }}
+                  />
                 </div>
                 <div className="suggested-tags">
                   {tags.map((tag, idx) => (
                     <button
                       key={tag}
                       className={activeTag === idx ? "active" : ""}
-                      onClick={() => setActiveTag(idx)}
+                      onClick={() => {
+                        setActiveTag(idx);
+                        navigate('/explore', { state: { searchTerm: tag } });
+                      }}
                     >
                       {tag}
                     </button>
@@ -356,6 +374,7 @@ function ConversationSequence() {
     { icon: <FaLightbulb size={32} />, title: 'Philosophy & Big Questions' },
     { icon: <FaGraduationCap size={32} />, title: 'Education & Learning' },
   ];
+  const navigate = useNavigate();
 
   return (
     <div className="conversation-sequence-bg">
@@ -429,7 +448,10 @@ function ConversationSequence() {
             <div
               key={cat.title}
               className={`service-card${activeCategory === idx ? ' active' : ''}`}
-              onClick={() => setActiveCategory(idx)}
+              onClick={() => {
+                setActiveCategory(idx);
+                navigate('/explore', { state: { selectedCategory: cat.title } });
+              }}
             >
               <span className="service-icon">{cat.icon}</span>
               <div className="service-title">{cat.title.split(' & ').map((line, i, arr) => arr.length > 1 && i === 0 ? line + ' &' : line).map((line, i) => (
